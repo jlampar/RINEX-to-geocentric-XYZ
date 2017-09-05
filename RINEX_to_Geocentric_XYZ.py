@@ -6,22 +6,20 @@ from math import cos
 from math import atan2
 
 class SateliteTime(object):
-    def __init__(self,d,mth,y,h,min,s,prop):
-        self.d = d
-        self.mth = mth
-        self.y = y
-        self.h = h
-        self.min = min
-        self.s = s
+    def __init__(self,date_day,date_time,prop):
+        self.date_day = date_day
+        self.date_time = date_time
         self.prop = prop
 
     def time(self):
-        week = datetime.date(self.y, self.mth, self.d).weekday()
+        date_day_array = self.date_day.split("/")
+        date_time_array = self.date_time.split(":")
+        week = datetime.date(int(date_day_array[2]), int(date_day_array[1]), int(date_day_array[0])).weekday()
         if week >= 0 and week < 6:
             week += 1
         elif week == 6:
             week = 0
-        return float(week * 24 * 60 * 60) + float(self.h * 60 * 60) + float(self.min * 60) + self.s
+        return float(week * 24 * 60 * 60) + float(int(date_time_array[0]) * 60 * 60) + float(int(date_time_array[1]) * 60) + float(date_time_array[2])
 
 class RINEX(object):
 
@@ -58,8 +56,8 @@ class RINEX(object):
         # [33.0(IODE), 56.1875(Crs), 4.54483216765e-09(DELTAn), -2.88842646276(M0), 2.83680856228e-06(Cuc), 0.0169634080958(e), 5.29177486897e-06(Cus), 5153.68485069(sqrtA), 64800.0(Toe), 2.14204192162e-07(Cic), -1.79229306516(OMEGA0), -1.26659870148e-07(Cis), 0.973313017457(I0), 282.21875(Crc), -1.89637567079(omega), -7.93497338063e-09(OMEGADOT), 5.64666377764e-10(Idot), 1.0(nd), 1628.0(nd), 0.0(nd), 2.63666734099e-05(a0), 2.27373675443e-12(a1), 0.0(a2)]
         # [IODE(0), Crs(1), DELTAn(2), M0(3), Cuc(4), e(5), Cus(6), sqrtA(7), Toe(8), Cic(9), OMEGA0(10), Cis(11), I0(12), Crc(13), omega(14), OMEGADOT(15), Idot(16), nd(17), nd(18), nd(19), a0(20), a1(21), a2(22)]
 
-    def dt(self,mat,t):
-        return (mat[20] + mat[21]*(t-mat[8]) + mat[22]*((t-mat[8])**2))
+    def dt(self,arr,t):
+        return (arr[20] + arr[21]*(t-arr[8]) + arr[22]*((t-arr[8])**2))
 
     def get_coordinates(self,arr,t,dt):
         tk = t - arr[8] - dt # epoka odniesienia efemeryd
@@ -92,23 +90,19 @@ class RINEX(object):
         return (XG, YG, ZG)
 
 #Przykładowe dane dla pliku RINEX_d28
-#20.03.2011, 18:20:00
-#czas propagacji: 0.0738237203352194
+#Data obserwacji: 20/03/2011, 18:20:00
+#Czas propagacji: 0.0738237203352194
 
 path = raw_input("Podaj ścieżkę do pliku RINEX: ")
 print
-print "Podaj dokładny czas obserwacji:"
-dzien = int(raw_input("Dzień: "))
-miesiac = int(raw_input("Miesiąc: "))
-rok = int(raw_input("Rok: "))
-godzina = int(raw_input("Godzina: "))
-minuta = int(raw_input("Minuta: "))
-sekunda = float(raw_input("Sekunda: "))
+print "Podaj datę obserwacji."
+ddmmyy = raw_input("dd/mm/yy: ")
+hms = raw_input("h:min:sec: ")
 print
 propag = float(raw_input("Podaj czas propagacji: "))
 print
 
-time = SateliteTime(dzien,miesiac,rok,godzina,minuta,sekunda,propag).time()
+time = SateliteTime(ddmmyy,hms,propag).time()
 print "Sekundy zegara satelity: ", time
 
 rinex_file = RINEX(path)
