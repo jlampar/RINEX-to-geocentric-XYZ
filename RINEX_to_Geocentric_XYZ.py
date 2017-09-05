@@ -64,7 +64,7 @@ class RINEX(object):
         a = arr[7] ** 2 # duza polos orbity satelity
         n0 = sqrt(self.mi / (a ** 3)) # ruch sredni satelity
         n = n0 + arr[2] # poprawiony ruch sredni
-        Mk = arr[3] + n * tk # 6.Anomalia srednia w epoce tk
+        Mk = arr[3] + n * tk # anomalia srednia w epoce tk
         E = 0
         Ek = 1
         epsilon = 1 * 10 ** (-15)
