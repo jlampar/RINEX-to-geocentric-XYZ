@@ -4,155 +4,118 @@ from math import sqrt
 from math import sin
 from math import cos
 from math import atan2
-mi = 3.986005*(10**14)
-oe = 7.2921151467*(10**(-5))
 
-def day_of_week(r,m,d):
-    week = datetime.date(r,m,d).weekday()
-    if week >= 0 and week <6:
-        week += 1
-    elif week == 6:
-        week = 0
-    return week
+class SateliteTime(object):
+    def __init__(self,d,mth,y,h,min,s,prop):
+        self.d = d
+        self.mth = mth
+        self.y = y
+        self.h = h
+        self.min = min
+        self.s = s
+        self.prop = prop
 
-t = 0
-def time(week,h,m,s):
-    t = float(week*24*60*60) + float(h*60*60) + float(m*60) + s
-    return t
+    def time(self):
+        week = datetime.date(self.y, self.mth, self.d).weekday()
+        if week >= 0 and week < 6:
+            week += 1
+        elif week == 6:
+            week = 0
+        return float(week * 24 * 60 * 60) + float(self.h * 60 * 60) + float(self.min * 60) + self.s
 
-print "Podaj czas w formie dzien/miesiac/rok/godzina/minuty/sekundy np. 4/9/2013/12/30/00.0 (4 wrzesnia 2013, godzina 12:30:00)"
-data = raw_input("Podaj czas: ")
-p = raw_input("Podaj czas propagacji: ")
+class RINEX(object):
 
-#RINEX_d28:
-#20/3/2011/18/20/0.0
-#0.0738237203352194
+    mi = 3.986005*(10**14)
+    oe = 7.2921151467*(10**(-5))
 
-full_date = data.split("/")
-dzien = int(full_date[0])
-miesiac = int(full_date[1])
-rok = int(full_date[2])
-godzina = int(full_date[3])
-minuta = int(full_date[4])
-sekunda = float(full_date[5])
+    def __init__(self,file):
+        self.file = file
 
-dow = day_of_week(rok,miesiac,dzien)
-tsv = time(dow,godzina,minuta,sekunda)
+    def extract(self):
+        open_file = open(self.file, 'r').read().split('\n')
+        first_iter = []
+        for every_line in open_file:
+            if every_line[0] == "-":
+                first_iter.append(every_line)
+            else:
+                first_iter.append(" " + str(every_line))
 
-RINEX = raw_input("Podaj RINEX: ")
-rin = open(RINEX, 'r').read().split('\n')
+        second_iter = []
+        for every_verse in first_iter:
+            second_iter.append(list(every_verse[0 + i:19 + i] for i in range(0, len(every_verse), 19)))
 
-ortorin = []
-for every_line in rin:
-    if every_line[0] == "-":
-        ortorin.append(every_line)
-    else:
-        ortorin.append(" "+ str(every_line))
+        variables = []
+        for items in second_iter[1:6]:
+            items = [item.replace('D', 'E') for item in items]
+            for every_element in items:
+                variables.append(float(every_element))
 
-def chunkstring(string, length):
-    return (string[0+i:length+i] for i in range(0, len(string), length))
+        variables.append(float(first_iter[0][23:42].replace('D', 'E')))
+        variables.append(float(first_iter[0][42:61].replace('D', 'E')))
+        variables.append(float(first_iter[0][61:80].replace('D', 'E')))
 
-vl = []
-for every_verse in ortorin:
-    vl.append(list(chunkstring(every_verse, 19)))
+        return variables
+        # [33.0(IODE), 56.1875(Crs), 4.54483216765e-09(DELTAn), -2.88842646276(M0), 2.83680856228e-06(Cuc), 0.0169634080958(e), 5.29177486897e-06(Cus), 5153.68485069(sqrtA), 64800.0(Toe), 2.14204192162e-07(Cic), -1.79229306516(OMEGA0), -1.26659870148e-07(Cis), 0.973313017457(I0), 282.21875(Crc), -1.89637567079(omega), -7.93497338063e-09(OMEGADOT), 5.64666377764e-10(Idot), 1.0(nd), 1628.0(nd), 0.0(nd), 2.63666734099e-05(a0), 2.27373675443e-12(a1), 0.0(a2)]
+        # [IODE(0), Crs(1), DELTAn(2), M0(3), Cuc(4), e(5), Cus(6), sqrtA(7), Toe(8), Cic(9), OMEGA0(10), Cis(11), I0(12), Crc(13), omega(14), OMEGADOT(15), Idot(16), nd(17), nd(18), nd(19), a0(20), a1(21), a2(22)]
 
-variable_list = []
-for items in vl[1:6]:
-    items = [item.replace('D', 'E') for item in items]
-    for every_element in items:
-        variable_list.append(every_element)
+    def dt(self,mat,t):
+        return (mat[20] + mat[21]*(t-mat[8]) + mat[22]*((t-mat[8])**2))
 
-IODE = float(variable_list[0])
-Crs = float(variable_list[1])
-DELTAn = float(variable_list[2])
-M0 = float(variable_list[3])
-Cuc = float(variable_list[4])
-e = float(variable_list[5])
-Cus = float(variable_list[6])
-sqrtA = float(variable_list[7])
-Toe = float(variable_list[8])
-Cic = float(variable_list[9])
-OMEGA0 = float(variable_list[10])
-Cis = float(variable_list[11])
-I0 = float(variable_list[12])
-Crc = float(variable_list[13])
-omega = float(variable_list[14])
-OMEGADOT = float(variable_list[15])
-Idot = float(variable_list[16])
+    def get_coordinates(self,arr,t,dt):
+        tk = t - arr[8] - dt # epoka odniesienia efemeryd
+        a = arr[7] ** 2 # duza polos orbity satelity
+        n0 = sqrt(self.mi / (a ** 3)) # ruch sredni satelity
+        n = n0 + arr[2] # poprawiony ruch sredni
+        Mk = arr[3] + n * tk # 6.Anomalia srednia w epoce tk
+        E = 0
+        Ek = 1
+        epsilon = 1 * 10 ** (-15)
+        while abs(Ek - E) > epsilon:
+            E = Ek
+            Ek = Mk + arr[5] * sin(E) # anomalia mimosrodowa
+        vk = atan2((sqrt(1 - arr[5] ** 2) * sin(Ek)), (cos(Ek) - arr[5])) # anomalia prawdziwa (w = vk)
+        u = arr[14] + vk # argument szerokosci (u = Fik)
+        duk = arr[6] * sin(2 * u) + arr[4] * cos(2 * u) # poprawka dla argumentu szerokosci
+        drk = arr[1] * sin(2 * u) + arr[13] * cos(2 * u) # poprawka do promienia wodzacego
+        dik = arr[11] * sin(2 * u) + arr[9] * cos(2 * u) + arr[16] * tk # poprawka dla kata nachylenia orbity
+        uk = u + duk # poprawiony argument szereokosci
+        rk = a * (1 - arr[5] * cos(Ek)) + drk # poprawiony promien wodzacy
+        ik = arr[12] + dik # poprawiona wartosc kata nachylenia orbity
+        OMEGAk = arr[10] + (arr[15] - self.oe) * tk - self.oe * arr[8] # poprawiona dlugosc wezla wstepujacego orbity
+        s = rk * cos(uk)
+        ni = rk * sin(uk) # wspolrzedne satleity w plaszczyznie orbity (x', y' = s, ni)
+        # Wspolrzedne geocentryczne:
+        XG = s * cos(OMEGAk) - ni * cos(ik) * sin(OMEGAk)
+        YG = s * sin(OMEGAk) + ni * cos(ik) * cos(OMEGAk)
+        ZG = ni * sin(ik)
 
-a0 = float(ortorin[0][23:42].replace('D','E'))
-a1 = float(ortorin[0][42:61].replace('D','E'))
-a2 = float(ortorin[0][61:80].replace('D','E'))
+        return (XG, YG, ZG)
 
-#Obliczenia
-#1.Poprawka zegara satelity
-dt = a0 + a1*(tsv-Toe)+a2*((tsv-Toe)**2)
-print "dt", dt
-#2.Epoka odniesienia efemeryd
-tk = tsv - Toe - dt
-print "tk", tk
-#3.Duza polos orbity satelity
-a = sqrtA**2
-print "a", a
-#4.Ruch sredni satelity
-n0 = sqrt(mi/(a**3))
-print "n0", n0
-#5.Poprawiony ruch sredni
-n = n0 + DELTAn
-print "n", n
-#6.Anomalia srednia w epoce tk
-Mk = M0 + n*tk
-print "Mk", Mk
-#7.Anomalia mimosrodowa
-E=0
-Ek=1
-epsilon=1*10**(-15)
-while abs(Ek-E)>epsilon:
-    E=Ek
-    Ek=Mk+e*sin(E)
-print "Ek", Ek
-#8.Anomalia prawdziwa (w = vk)
-vk = atan2((sqrt(1-e**2)*sin(Ek)),(cos(Ek)-e))
-print "vk", vk
-#9.Argument szerokosci (u = Fik)
-u = omega + vk
-print "u", u
-#10.Poprawka dla argumentu szerokosci
-duk = Cus*sin(2*u)+Cuc*cos(2*u)
-print "duk", duk
-#11.Poprawka do promienia wodzacego
-drk = Crs*sin(2*u)+Crc*cos(2*u)
-print "drk", drk
-#12.Poprawka dla kata nachylenia orbity
-dik = Cis*sin(2*u)+Cic*cos(2*u)+Idot*tk
-print "dik", dik
-#13.Poprawiony argument szereokosci
-uk = u + duk
-print "uk", uk
-#14.Poprawiony promien wodzacy
-rk = a*(1-e*cos(Ek))+drk
-print "rk", rk
-#15.Poprawiona wartosc kata nachylenia orbity
-ik = I0 + dik
-print "ik", ik
-#16.Poprawiona dlugosc wezla wstepujacego orbity
-OMEGAk = OMEGA0 + (OMEGADOT-oe)*tk - oe*Toe
-print "OMEGAk", OMEGAk
-#17.Wspolrzedne satleity w plaszczyznie orbity (x', y' = s, ni)
-s = rk*cos(uk)
-ni = rk*sin(uk)
-print "s", s
-print "ni", ni
-#18.Wspolrzedne geocentryczne
-XG = s*cos(OMEGAk)-ni*cos(ik)*sin(OMEGAk)
-YG = s*sin(OMEGAk)+ni*cos(ik)*cos(OMEGAk)
-ZG = ni*sin(ik)
+#Przykładowe dane dla pliku RINEX_d28
+#20.03.2011, 18:20:00
+#czas propagacji: 0.0738237203352194
 
+path = raw_input("Podaj ścieżkę do pliku RINEX: ")
 print
-print "Wspolrzende w ukladzie XYZ:"
-print "X:",XG
-print "Y:",YG
-print "Z:",ZG
+print "Podaj dokładny czas obserwacji:"
+dzien = int(raw_input("Dzień: "))
+miesiac = int(raw_input("Miesiąc: "))
+rok = int(raw_input("Rok: "))
+godzina = int(raw_input("Godzina: "))
+minuta = int(raw_input("Minuta: "))
+sekunda = float(raw_input("Sekunda: "))
 print
-print "dt:", dt
-print tsv
+propag = float(raw_input("Podaj czas propagacji: "))
+print
+
+time = SateliteTime(dzien,miesiac,rok,godzina,minuta,sekunda,propag).time()
+print "Sekundy zegara satelity: ", time
+
+rinex_file = RINEX(path)
+
+matrix = rinex_file.extract()
+delta = rinex_file.dt(matrix,time)
+coordinates = rinex_file.get_coordinates(matrix,time,delta)
+
+print "Poprawka zegara satelity: ", delta
+print "Współrzędne geocentryczne XYZ: ", coordinates
