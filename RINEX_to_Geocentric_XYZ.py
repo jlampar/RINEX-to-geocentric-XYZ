@@ -97,12 +97,12 @@ path = raw_input("Podaj ścieżkę do pliku RINEX: ")
 print
 print "Podaj datę obserwacji."
 ddmmyy = raw_input("dd/mm/yy: ")
-hms = raw_input("h:min:sec: ")
+hminsec = raw_input("h:min:sec: ")
 print
 propag = float(raw_input("Podaj czas propagacji: "))
 print
 
-time = SateliteTime(ddmmyy,hms,propag).time()
+time = SateliteTime(ddmmyy,hminsec,propag).time()
 print "Sekundy zegara satelity: ", time
 
 rinex_file = RINEX(path)
